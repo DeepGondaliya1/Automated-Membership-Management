@@ -27,7 +27,7 @@ function App() {
 
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/create-checkout-session",
+        "https://automated-membership-management.onrender.com/api/create-checkout-session",
         {
           email,
           phone_number: phoneNumber,
@@ -51,7 +51,7 @@ function App() {
 
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/generate-invite",
+        "https://automated-membership-management.onrender.com/api/generate-invite",
         {
           email, // Use email as the identifier for manual generation
         }
@@ -75,7 +75,7 @@ function App() {
 
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/broadcast-message",
+        "https://automated-membership-management.onrender.com/api/broadcast-message",
         {
           message,
         }
@@ -100,7 +100,7 @@ function App() {
       const retrieveInviteLink = async () => {
         try {
           const response = await axios.get(
-            "http://localhost:5000/api/get-invite-link",
+            "https://automated-membership-management.onrender.com/api/get-invite-link",
             {
               params: { email: emailFromUrl },
             }
