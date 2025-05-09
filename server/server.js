@@ -306,9 +306,9 @@ app.post("/api/create-checkout-session", async (req, res) => {
       ],
       mode: "payment",
       success_url:
-        "http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}&email=" +
+        "https://automated-membership-management.vercel.app/success?session_id={CHECKOUT_SESSION_ID}&email=" +
         encodeURIComponent(email),
-      cancel_url: "http://localhost:3000/cancel",
+      cancel_url: "https://automated-membership-management.vercel.app/cancel",
       metadata: {
         email,
         phone_number: phone_number || "",
@@ -365,11 +365,9 @@ app.post("/api/generate-invite", async (req, res) => {
       guild = await discordClient.guilds.fetch(DISCORD_SERVER_ID);
     } catch (guildError) {
       console.error("Failed to fetch Discord guild:", guildError.message);
-      return res
-        .status(500)
-        .json({
-          error: `Failed to fetch Discord guild: ${guildError.message}`,
-        });
+      return res.status(500).json({
+        error: `Failed to fetch Discord guild: ${guildError.message}`,
+      });
     }
 
     const channel = guild.channels.cache.find((ch) => ch.type === 0); // First text channel
@@ -388,11 +386,9 @@ app.post("/api/generate-invite", async (req, res) => {
       });
     } catch (inviteError) {
       console.error("Failed to create Discord invite:", inviteError.message);
-      return res
-        .status(500)
-        .json({
-          error: `Failed to create Discord invite: ${inviteError.message}`,
-        });
+      return res.status(500).json({
+        error: `Failed to create Discord invite: ${inviteError.message}`,
+      });
     }
 
     const discordInviteLink = `https://discord.gg/${discordInvite.code}`;
