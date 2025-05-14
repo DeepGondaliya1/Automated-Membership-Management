@@ -34,7 +34,7 @@ function App() {
           whatsapp_number: whatsAppNumber,
         }
       );
-      window.location.href = response.data.url; // Redirect to Stripe Checkout
+      window.location.href = response.data.url;
     } catch (err) {
       setError(
         "Failed to initiate payment: " +
@@ -53,15 +53,18 @@ function App() {
       const response = await axios.post(
         "https://automated-membership-management.onrender.com/api/generate-invite",
         {
-          email, // Use email as the identifier for manual generation
+          email,
         }
       );
-      setInviteLink(response.data.telegram_invite_link); // Show Telegram link for now
+      setInviteLink(response.data.telegram_invite_link);
       setStatus(
         "Invite links generated successfully! Telegram: " +
           response.data.telegram_invite_link +
-          " | Discord: " +
-          response.data.discord_invite_link
+          " | Discord Bot: " +
+          response.data.discord_invite_link +
+          " (Add the bot and send '/start " +
+          email +
+          "')"
       );
     } catch (err) {
       setError("Error: " + (err.response?.data?.error || err.message));
@@ -96,7 +99,6 @@ function App() {
       setStatus("Payment successful! Retrieving your invite link...");
       setEmail(emailFromUrl);
 
-      // Retrieve the invite link
       const retrieveInviteLink = async () => {
         try {
           const response = await axios.get(
@@ -105,12 +107,15 @@ function App() {
               params: { email: emailFromUrl },
             }
           );
-          setInviteLink(response.data.telegram_invite_link); // Show Telegram link for now
+          setInviteLink(response.data.telegram_invite_link);
           setStatus(
             "Payment successful! Here are your invite links (also sent via WhatsApp): Telegram: " +
               response.data.telegram_invite_link +
-              " | Discord: " +
-              response.data.discord_invite_link
+              " | Discord Bot: " +
+              response.data.discord_invite_link +
+              " (Add the bot and send '/start " +
+              emailFromUrl +
+              "')"
           );
         } catch (err) {
           setError(
