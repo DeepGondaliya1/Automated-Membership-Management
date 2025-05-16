@@ -861,9 +861,9 @@ app.post("/api/create-checkout-session", async (req, res) => {
       ],
       mode: "payment",
       success_url:
-        "http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}&email=" +
+        "https://automated-membership-management.vercel.app/success?session_id={CHECKOUT_SESSION_ID}&email=" +
         encodeURIComponent(email),
-      cancel_url: "http://localhost:3000/cancel",
+      cancel_url: "https://automated-membership-management.vercel.app/cancel",
       customer_email: email,
       metadata: {
         email,
