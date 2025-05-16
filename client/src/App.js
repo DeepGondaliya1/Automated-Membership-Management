@@ -7,6 +7,7 @@ function App() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [whatsAppNumber, setWhatsAppNumber] = useState("");
   const [message, setMessage] = useState("");
+  const [file, setFile] = useState(null);
   const [inviteLink, setInviteLink] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -76,14 +77,31 @@ function App() {
     setError("");
     setStatus("");
 
+    if (!message && !file) {
+      setError("Please provide a message or file to broadcast");
+      return;
+    }
+
     try {
+      const formData = new FormData();
+      formData.append("message", message);
+      if (file) {
+        formData.append("file", file);
+      }
+
       const response = await axios.post(
         "https://automated-membership-management.onrender.com/api/broadcast-message",
+        formData,
         {
-          message,
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
         }
       );
       setStatus(response.data.message);
+      setMessage("");
+      setFile(null);
+      document.getElementById("fileInput").value = null; // Reset file input
     } catch (err) {
       setError("Error: " + (err.response?.data?.error || err.message));
     }
@@ -133,7 +151,7 @@ function App() {
 
   return (
     <div className="App">
-      <h1>Telegram Channel Subscription</h1>
+      <h1>Automated Membership Management</h1>
 
       <div className="section">
         <h2>Make a Payment</h2>
@@ -183,7 +201,12 @@ function App() {
             placeholder="Enter message to broadcast"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            required
+          />
+          <input
+            type="file"
+            id="fileInput"
+            accept="image/jpeg,image/png,video/mp4,application/pdf,.doc,.docx"
+            onChange={(e) => setFile(e.target.files[0])}
           />
           <button type="submit">Broadcast</button>
         </form>
