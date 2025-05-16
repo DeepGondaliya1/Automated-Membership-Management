@@ -132,6 +132,16 @@ discordClient.on("messageCreate", async (message) => {
       );
     }
 
+    if (user.discord_user_id && user.discord_user_id !== userDiscordId) {
+      console.log(
+        `Attempt to link email ${userEmail} to new Discord ID ${userDiscordId} rejected: already linked to ${user.discord_user_id}`
+      );
+      await message.channel.send(
+        "This email is already linked to another Discord account. Please use the original Discord account or contact support."
+      );
+      return;
+    }
+
     // Store the discord_user_id
     try {
       const updatedUser = await User.findOneAndUpdate(
@@ -713,9 +723,10 @@ app.post("/api/create-checkout-session", async (req, res) => {
       ],
       mode: "payment",
       success_url:
-        "https://automated-membership-management.vercel.app/success?session_id={CHECKOUT_SESSION_ID}&email=" +
+        "http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}&email=" +
         encodeURIComponent(email),
-      cancel_url: "https://automated-membership-management.vercel.app/cancel",
+      cancel_url: "http://localhost:3000/cancel",
+      customer_email: email,
       metadata: {
         email,
         phone_number: phone_number || "",
