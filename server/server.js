@@ -17,7 +17,7 @@ dotenv.config();
 const app = express();
 
 // Configure multer for file uploads
-const uploadDir = path.join(__dirname, "uploads");
+const uploadDir = path.join(__dirname, "Uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
@@ -31,7 +31,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 8 * 1024 * 1024 },
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
       "image/jpeg",
@@ -53,6 +53,7 @@ const upload = multer({
   },
 });
 
+// Initialize Discord client
 const discordClient = new Client({
   intents: [
     GatewayIntentBits.DirectMessages,
@@ -73,20 +74,19 @@ discordClient.on("debug", (info) => {
   console.log(`Discord debug: ${info}`);
 });
 
-// Handle DMs to store user IDs
+// Handle Discord DMs
 discordClient.on("messageCreate", async (message) => {
-  console.log("MessageCreate event triggered");
+  console.log("Discord MessageCreate event triggered");
 
   if (message.author.bot || !message.channel.isDMBased()) {
-    console.log("Ignoring message: from bot or not a DM");
+    console.log("Ignoring Discord message: from bot or not a DM");
     return;
   }
 
   const userDiscordId = message.author.id;
   const userMessage = message.content.trim();
-  console.log(`Received DM from Discord user ${userDiscordId}: ${userMessage}`);
+  console.log(`Received Discord DM from user ${userDiscordId}: ${userMessage}`);
 
-  // Check if the message contains an email-like string
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const cleanedMessage = userMessage.replace(/\s+/g, "").toLowerCase();
   let userEmail = cleanedMessage;
@@ -94,14 +94,13 @@ discordClient.on("messageCreate", async (message) => {
   if (userEmail === "deepgonadliya773@gmail.com") {
     userEmail = "deepgondaliya773@gmail.com";
     console.log(
-      `Corrected email typo: deepgonadliya773@gmail.com to ${userEmail}`
+      `Corrected Discord email typo: deepgonadliya773@gmail.com to ${userEmail}`
     );
   }
 
   if (emailRegex.test(userEmail)) {
-    console.log(`Valid email detected in DM: ${userEmail}`);
+    console.log(`Valid email detected in Discord DM: ${userEmail}`);
 
-    // Verify if the email exists in the User collection
     const user = await User.findOne({ email: userEmail });
     if (!user) {
       console.log(`No user found with email ${userEmail}`);
@@ -111,7 +110,6 @@ discordClient.on("messageCreate", async (message) => {
       return;
     }
 
-    // Verify if the email has a corresponding InviteLink
     const inviteLink = await InviteLink.findOne({ email: userEmail });
     if (!inviteLink) {
       console.log(`No invite link found for email ${userEmail}`);
@@ -124,7 +122,6 @@ discordClient.on("messageCreate", async (message) => {
       `InviteLink found for ${userEmail}: ${JSON.stringify(inviteLink)}`
     );
 
-    // Verify Discord link (log for debugging, but proceed if email matches)
     const expectedDiscordLink = `https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_BOT_ID}&scope=bot&permissions=2048`;
     if (inviteLink.invite_links.discord !== expectedDiscordLink) {
       console.warn(
@@ -142,7 +139,6 @@ discordClient.on("messageCreate", async (message) => {
       return;
     }
 
-    // Store the discord_user_id
     try {
       const updatedUser = await User.findOneAndUpdate(
         { email: userEmail },
@@ -150,7 +146,7 @@ discordClient.on("messageCreate", async (message) => {
         { new: true }
       );
       console.log(
-        `Stored Discord user ID ${userDiscordId} for email ${userEmail}. Updated user: ${JSON.stringify(
+        `Stored/Updated Discord user ID ${userDiscordId} for email ${userEmail}. Updated user: ${JSON.stringify(
           updatedUser
         )}`
       );
@@ -168,7 +164,7 @@ discordClient.on("messageCreate", async (message) => {
     }
   } else {
     console.log(
-      `No valid email detected in message from ${userDiscordId}: ${userMessage}`
+      `No valid email detected in Discord message from ${userDiscordId}: ${userMessage}`
     );
     await message.channel.send(
       "Please send the email address you used for your subscription to link your Discord account (e.g., deepgondaliya773@gmail.com)."
@@ -180,10 +176,158 @@ discordClient.login(process.env.DISCORD_BOT_TOKEN).catch((err) => {
   console.error("Failed to login to Discord:", err.message);
 });
 
+// Set Telegram webhook
+async function setTelegramWebhook() {
+  try {
+    const webhookUrl = `${process.env.SERVER_URL}/api/telegram-webhook`;
+    await axios.post(
+      `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/setWebhook`,
+      { url: webhookUrl }
+    );
+    console.log(`Telegram webhook set to ${webhookUrl}`);
+  } catch (error) {
+    console.error(
+      "Error setting Telegram webhook:",
+      error.response ? error.response.data : error.message,
+      error.stack
+    );
+  }
+}
+
+setTelegramWebhook();
+
+// Telegram webhook endpoint
+app.post("/api/telegram-webhook", express.json(), async (req, res) => {
+  console.log("Telegram webhook endpoint hit @@@");
+  try {
+    const update = req.body;
+    if (update.message && update.message.chat.type === "private") {
+      const userTelegramId = update.message.from.id.toString();
+      const userMessage = update.message.text?.trim();
+      console.log(
+        `Received Telegram DM from user ${userTelegramId}: ${userMessage}`
+      );
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const cleanedMessage = userMessage?.replace(/\s+/g, "").toLowerCase();
+      let userEmail = cleanedMessage;
+
+      if (userEmail === "deepgonadliya773@gmail.com") {
+        userEmail = "deepgondaliya773@gmail.com";
+        console.log(
+          `Corrected Telegram email typo: deepgonadliya773@gmail.com to ${userEmail}`
+        );
+      }
+
+      if (emailRegex.test(userEmail)) {
+        console.log(`Valid email detected in Telegram DM: ${userEmail}`);
+
+        const user = await User.findOne({ email: userEmail });
+        if (!user) {
+          console.log(`No user found with email ${userEmail}`);
+          await axios.post(
+            `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+            {
+              chat_id: userTelegramId,
+              text: "No subscription found with this email. Please ensure you provide the email used for your subscription (e.g., deepgondaliya773@gmail.com).",
+            }
+          );
+          return res.sendStatus(200);
+        }
+
+        const inviteLink = await InviteLink.findOne({ email: userEmail });
+        if (!inviteLink) {
+          console.log(`No invite link found for email ${userEmail}`);
+          await axios.post(
+            `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+            {
+              chat_id: userTelegramId,
+              text: "No invite links found for this email. Please ensure you completed the subscription process or contact support.",
+            }
+          );
+          return res.sendStatus(200);
+        }
+
+        const expectedTelegramLink = `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}`;
+        if (inviteLink.invite_links.telegram !== expectedTelegramLink) {
+          console.warn(
+            `Telegram link mismatch for ${userEmail}. Expected: ${expectedTelegramLink}, Found: ${inviteLink.invite_links.telegram}`
+          );
+        }
+
+        if (user.telegram_user_id && user.telegram_user_id !== userTelegramId) {
+          console.log(
+            `Attempt to link email ${userEmail} to new Telegram ID ${userTelegramId} rejected: already linked to ${user.telegram_user_id}`
+          );
+          await axios.post(
+            `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+            {
+              chat_id: userTelegramId,
+              text: "This email is already linked to another Telegram account. Please use the original Telegram account or contact support.",
+            }
+          );
+          return res.sendStatus(200);
+        }
+
+        try {
+          const updatedUser = await User.findOneAndUpdate(
+            { email: userEmail },
+            { $set: { telegram_user_id: userTelegramId } },
+            { new: true }
+          );
+          console.log(
+            `Stored/Updated Telegram user ID ${userTelegramId} for email ${userEmail}. Updated user: ${JSON.stringify(
+              updatedUser
+            )}`
+          );
+          await axios.post(
+            `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+            {
+              chat_id: userTelegramId,
+              text: "Thank you! Your Telegram ID has been linked to your subscription. You'll now receive broadcast messages here.",
+            }
+          );
+        } catch (error) {
+          console.error(
+            `Error storing Telegram user ID for ${userEmail}: ${error.message}`,
+            error.stack
+          );
+          await axios.post(
+            `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+            {
+              chat_id: userTelegramId,
+              text: "An error occurred while linking your Telegram ID. Please try again or contact support.",
+            }
+          );
+        }
+      } else {
+        console.log(
+          `No valid email detected in Telegram message from ${userTelegramId}: ${userMessage}`
+        );
+        await axios.post(
+          `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+          {
+            chat_id: userTelegramId,
+            text: "Please send the email address you used for your subscription to link your Telegram account (e.g., deepgondaliya773@gmail.com).",
+          }
+        );
+      }
+    }
+    res.sendStatus(200);
+  } catch (error) {
+    console.error(
+      "Error in Telegram webhook:",
+      error.response ? error.response.data : error.message,
+      error.stack
+    );
+    res.sendStatus(500);
+  }
+});
+
 // Apply CORS globally
 app.use(cors());
 
-// Apply raw body parsing specifically for Stripe webhook
+// Stripe webhook
 app.post(
   "/api/stripe-webhook",
   express.raw({ type: "application/json" }),
@@ -206,7 +350,6 @@ app.post(
       return res.status(400).send(`Webhook Error: ${error.message}`);
     }
 
-    // Only handle checkout.session.completed event
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       const { email, phone_number, whatsapp_number } = session.metadata;
@@ -222,7 +365,6 @@ app.post(
           .send("Webhook Error: Missing email or whatsapp_number in metadata");
       }
 
-      // Store payment in MongoDB
       try {
         const payment = new Payment({
           email,
@@ -244,14 +386,13 @@ app.post(
         return res.status(500).send(`Webhook Error: ${paymentError.message}`);
       }
 
-      // Create or update user subscription
       try {
         const expireDate = new Date();
         expireDate.setDate(expireDate.getDate() + 30);
 
         await User.findOneAndUpdate(
           { email },
-          { email, channel_id: TELEGRAM_GROUP_ID, expire_date: expireDate },
+          { email, expire_date: expireDate },
           { upsert: true }
         );
         console.log(`Updated subscription for email ${email}`);
@@ -264,43 +405,18 @@ app.post(
         return res.status(500).send(`Webhook Error: ${userError.message}`);
       }
 
-      // Generate Telegram and Discord invite links
       let inviteLinkData = { telegram: "", whatsapp: "", discord: "" };
       try {
-        // Generate Telegram invite link
-        try {
-          const telegramResponse = await axios.post(
-            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/createChatInviteLink`,
-            {
-              chat_id: TELEGRAM_GROUP_ID,
-              creates_join_request: false,
-              member_limit: 1,
-            }
-          );
-          inviteLinkData.telegram = telegramResponse.data.result.invite_link;
-          console.log(
-            `Generated Telegram invite link for email ${email}: ${inviteLinkData.telegram}`
-          );
-        } catch (telegramError) {
-          console.error(
-            "Error generating Telegram invite link:",
-            telegramError.response
-              ? telegramError.response.data
-              : telegramError.message,
-            telegramError.stack
-          );
-          throw new Error(
-            `Failed to generate Telegram invite link: ${telegramError.message}`
-          );
-        }
+        inviteLinkData.telegram = `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}`;
+        console.log(
+          `Generated Telegram bot DM link for email ${email}: ${inviteLinkData.telegram}`
+        );
 
-        // Use bot invite link
         inviteLinkData.discord = `https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_BOT_ID}&scope=bot&permissions=2048`;
         console.log(
           `Generated Discord bot invite link for email ${email}: ${inviteLinkData.discord}`
         );
 
-        // Store the invite links in MongoDB
         try {
           await InviteLink.findOneAndUpdate(
             { email },
@@ -323,9 +439,8 @@ app.post(
           );
         }
 
-        // Send WhatsApp message with Telegram and Discord bot invite links
         try {
-          const messageText = `Thank you for your payment! Join our Telegram channel here: ${inviteLinkData.telegram}\nAdd our Discord bot to a server here: ${inviteLinkData.discord}\nAfter adding the bot, send your subscription email (e.g., ${email}) via DM to link your account for broadcast messages.`;
+          const messageText = `Thank you for your payment! Start a DM with our Telegram bot here: ${inviteLinkData.telegram}\nAdd our Discord bot to a server here: ${inviteLinkData.discord}\nAfter starting a DM or adding the bot, send your subscription email (e.g., ${email}) via DM to link your account for broadcast messages.`;
           const recipientNumber = whatsapp_number.replace(/\D/g, "");
           const formData = new FormData();
           formData.append("phonenumber", recipientNumber);
@@ -375,7 +490,7 @@ app.post(
 // Apply JSON parsing for all other routes
 app.use(express.json());
 
-// Modified broadcast endpoint to handle text and file
+// Broadcast endpoint
 app.post("/api/broadcast-message", upload.single("file"), async (req, res) => {
   const { message } = req.body;
   const file = req.file;
@@ -390,7 +505,6 @@ app.post("/api/broadcast-message", upload.single("file"), async (req, res) => {
   let errorMessage = "";
   let blobUrl = null;
 
-  // Helper function to clean up uploaded file
   const cleanupFile = (filePath) => {
     if (filePath && fs.existsSync(filePath)) {
       fs.unlink(filePath, (err) => {
@@ -399,7 +513,6 @@ app.post("/api/broadcast-message", upload.single("file"), async (req, res) => {
     }
   };
 
-  // Upload file to Vercel Blob for WhatsApp
   if (file) {
     try {
       const blob = await put(file.filename, fs.createReadStream(file.path), {
@@ -418,54 +531,81 @@ app.post("/api/broadcast-message", upload.single("file"), async (req, res) => {
     }
   }
 
-  // Send to Telegram
+  // Send to Telegram DMs
   try {
-    if (file) {
-      const filePath = file.path;
-      const fileType = file.mimetype;
-      let telegramMethod;
+    const activeUsers = await User.find({
+      expire_date: { $gt: new Date() },
+      telegram_user_id: { $exists: true, $ne: null },
+    });
 
-      if (fileType.startsWith("image/")) {
-        telegramMethod = "sendPhoto";
-      } else if (fileType.startsWith("video/")) {
-        telegramMethod = "sendVideo";
-      } else {
-        telegramMethod = "sendDocument";
-      }
-
-      const formData = new FormData();
-      formData.append("chat_id", TELEGRAM_GROUP_ID);
-      formData.append(
-        telegramMethod === "sendPhoto"
-          ? "photo"
-          : telegramMethod === "sendVideo"
-          ? "video"
-          : "document",
-        fs.createReadStream(filePath)
-      );
-      if (message) {
-        formData.append("caption", message);
-      }
-
-      await axios.post(
-        `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/${telegramMethod}`,
-        formData,
-        {
-          headers: formData.getHeaders(),
-        }
-      );
-      console.log(`Broadcast ${telegramMethod} to Telegram successfully`);
+    if (activeUsers.length === 0) {
+      console.log("No active Telegram users found for broadcast");
     } else {
-      await axios.post(
-        `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-        {
-          chat_id: TELEGRAM_GROUP_ID,
-          text: message,
+      for (const user of activeUsers) {
+        try {
+          if (file) {
+            const fileType = file.mimetype;
+            let telegramMethod;
+
+            if (fileType.startsWith("image/")) {
+              telegramMethod = "sendPhoto";
+            } else if (fileType.startsWith("video/")) {
+              telegramMethod = "sendVideo";
+            } else {
+              telegramMethod = "sendDocument";
+            }
+
+            const formData = new FormData();
+            formData.append("chat_id", user.telegram_user_id);
+            formData.append(
+              telegramMethod === "sendPhoto"
+                ? "photo"
+                : telegramMethod === "sendVideo"
+                ? "video"
+                : "document",
+              fs.createReadStream(file.path)
+            );
+            if (message) {
+              formData.append("caption", message);
+            }
+
+            await axios.post(
+              `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/${telegramMethod}`,
+              formData,
+              {
+                headers: formData.getHeaders(),
+              }
+            );
+            console.log(
+              `Broadcast ${telegramMethod} to Telegram user ${user.telegram_user_id} for email ${user.email}`
+            );
+          } else {
+            await axios.post(
+              `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+              {
+                chat_id: user.telegram_user_id,
+                text: message,
+              }
+            );
+            console.log(
+              `Broadcast text to Telegram user ${user.telegram_user_id} for email ${user.email}`
+            );
+          }
+        } catch (userError) {
+          console.error(
+            `Error broadcasting to Telegram user ${user.telegram_user_id}:`,
+            userError.response ? userError.response.data : userError.message,
+            userError.stack
+          );
+          errorMessage += `Telegram error for ${user.telegram_user_id}: ${
+            userError.response ? userError.response.data : userError.message
+          }; `;
+          continue;
         }
-      );
-      console.log("Broadcast text to Telegram successfully");
+      }
+      telegramSuccess = activeUsers.length > 0;
+      console.log("Broadcast to Telegram DMs successfully");
     }
-    telegramSuccess = true;
   } catch (telegramError) {
     errorMessage += `Telegram error: ${
       telegramError.response
@@ -473,7 +613,7 @@ app.post("/api/broadcast-message", upload.single("file"), async (req, res) => {
         : telegramError.message
     }; `;
     console.error(
-      "Error broadcasting to Telegram:",
+      "Error broadcasting to Telegram DMs:",
       telegramError.response
         ? telegramError.response.data
         : telegramError.message,
@@ -499,7 +639,7 @@ app.post("/api/broadcast-message", upload.single("file"), async (req, res) => {
             );
             if (file) {
               await discordUser.send({
-                content: message || "",
+                content: message || "Broadcast attachment",
                 files: [
                   {
                     attachment: file.path,
@@ -614,7 +754,6 @@ app.post("/api/broadcast-message", upload.single("file"), async (req, res) => {
     );
   }
 
-  // Clean up uploaded file and Vercel Blob
   if (file) {
     cleanupFile(file.path);
     if (blobUrl) {
@@ -646,7 +785,6 @@ app.post("/api/broadcast-message", upload.single("file"), async (req, res) => {
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const DISCORD_BOT_ID = process.env.DISCORD_BOT_ID;
 
@@ -655,9 +793,9 @@ const stripeClient = stripe(STRIPE_SECRET_KEY);
 // MongoDB User Schema
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
-  channel_id: { type: String, required: true },
   expire_date: { type: Date, required: true },
   discord_user_id: { type: String },
+  telegram_user_id: { type: String },
 });
 
 const User = mongoose.model("User", userSchema);
@@ -695,7 +833,7 @@ mongoose
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
-// API to create Stripe Checkout Session
+// Create Stripe Checkout Session
 app.post("/api/create-checkout-session", async (req, res) => {
   console.log("data $$$$$$$$$$");
   const { email, phone_number, whatsapp_number } = req.body;
@@ -714,7 +852,7 @@ app.post("/api/create-checkout-session", async (req, res) => {
           price_data: {
             currency: "usd",
             product_data: {
-              name: "Telegram Channel Subscription",
+              name: "Subscription",
             },
             unit_amount: 6000,
           },
@@ -748,7 +886,7 @@ app.post("/api/create-checkout-session", async (req, res) => {
   }
 });
 
-// API to generate Telegram invite link (for manual generation)
+// Generate invite links
 app.post("/api/generate-invite", async (req, res) => {
   const { email } = req.body;
 
@@ -757,27 +895,14 @@ app.post("/api/generate-invite", async (req, res) => {
   }
 
   try {
-    // Check if user has an active subscription
     const user = await User.findOne({ email });
     if (!user || user.expire_date < new Date()) {
       return res.status(403).json({ error: "No active subscription" });
     }
 
-    // Generate Telegram invite link
-    const telegramResponse = await axios.post(
-      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/createChatInviteLink`,
-      {
-        chat_id: TELEGRAM_GROUP_ID,
-        creates_join_request: false,
-        member_limit: 1,
-      }
-    );
-    const telegramInviteLink = telegramResponse.data.result.invite_link;
-
-    // Use bot invite link
+    const telegramInviteLink = `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}`;
     const discordInviteLink = `https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_BOT_ID}&scope=bot&permissions=2048`;
 
-    // Update the invite links in MongoDB
     await InviteLink.findOneAndUpdate(
       { email },
       {
@@ -804,7 +929,7 @@ app.post("/api/generate-invite", async (req, res) => {
   }
 });
 
-// API to retrieve invite links
+// Retrieve invite links
 app.get("/api/get-invite-link", async (req, res) => {
   const { email } = req.query;
 
@@ -831,6 +956,7 @@ app.get("/api/get-invite-link", async (req, res) => {
   }
 });
 
+// Cron job for expired subscriptions
 cron.schedule("*/1 * * * *", async () => {
   console.log("Checking for expired subscriptions...");
   try {
